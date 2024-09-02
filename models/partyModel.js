@@ -11,6 +11,17 @@ const partySchema = new mongoose.Schema(
       type: String,
       required: [true, "Please add a description of the party"],
     },
+    address: {
+      type: String,
+      required: [true, "Please add a address of the party"],
+    },
+    date: {
+      type: String,
+      required: [true, "Please add a date of the party"],
+    },
+    image: {
+      type: String,      
+    },
     postedBy: {
       type: mongoose.Schema.ObjectId,
       ref: "User",

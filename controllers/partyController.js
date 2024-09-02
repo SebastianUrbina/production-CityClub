@@ -1,35 +1,75 @@
 const partyModel = require("../models/partyModel");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Ensure the uploads directory exists
+const uploadDir = path.join(__dirname, "uploads");
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
+// Configure Multer storage
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, `${uniqueSuffix}-${file.originalname}`);
+  },
+});
+
+const upload = multer({ storage });
 
 //Create Party
+
 const createPartyController = async (req, res) => {
-  try {
-    const { name, description } = req.body;
-    //Validate
-    if (!name || !description) {
+  // Use multer middleware to handle the file upload
+  upload.single("file")(req, res, async function (err) {
+    if (err) {
       return res.status(500).send({
         success: false,
-        message: "Please Provide All Fields",
+        message: "File upload failed",
+        error: err.message,
       });
     }
-    const party = await partyModel({
-      name,
-      description,
-      postedBy: req.auth._id,
-    }).save();
-    res.status(201).send({
-      success: true,
-      message: "Party Created Succesfully",
-      party,
-    });
-    console.log(req);
-  } catch (error) {
-    console.log(error);
-    res.status(500).send({
-      success: false,
-      message: "Error in Create Party APi",
-      error,
-    });
-  }
+
+    try {
+      const { name, description, address, date } = req.body;
+      // Validate input fields
+      if (!name || !description || !address || !date) {
+        return res.status(400).send({
+          success: false,
+          message: "Please provide all fields",
+        });
+      }
+
+      // Create the party document
+      const party = new partyModel({
+        name,
+        description,
+        address,
+        date,
+        image: req.file ? req.file.path : null,
+        postedBy: req.auth._id,
+      });
+      await party.save();
+
+      res.status(201).send({
+        success: true,
+        message: "Party created successfully",
+        party,
+      });
+    } catch (error) {
+      console.log(error);
+      res.status(500).send({
+        success: false,
+        message: "Error in creating party",
+        error,
+      });
+    }
+  });
 };
 
 // GET ALL PARTIES
@@ -95,11 +135,11 @@ const deletePartyController = async (req, res) => {
 //Update Party
 const updatePartyController = async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, address, date } = req.body;
     //find party
     const party = await partyModel.findById({ _id: req.params.id });
     //validation
-    if (!name || !description) {
+    if (!name || !description || !address || !date) {
       return res.status(500).send({
         success: false,
         message: "Please Provide Party Name or Description",
@@ -112,6 +152,8 @@ const updatePartyController = async (req, res) => {
       {
         name: name || party?.name,
         description: description || party?.description,
+        address: address || party?.address,
+        date: date || party?.date,
       },
       { new: true }
     );
@@ -119,8 +161,7 @@ const updatePartyController = async (req, res) => {
       success: true,
       message: "Party Updated Successfully",
       updatedParty,
-      
-    })
+    });
   } catch (error) {
     console.log(error);
     res.status(500).send({
